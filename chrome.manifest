@@ -1,0 +1,5 @@
+content   cfc                content/
+skin      cfc  classic/1.0   skin/
+locale    cfc  en-US         locale/en-US/
+
+overlay chrome://browser/content/browser.xul  chrome://cfc/content/browserOverlay.xul
