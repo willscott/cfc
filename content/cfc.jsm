@@ -50,6 +50,8 @@ var cfc = {
     "archive.li" : true,
   },
   _blacklist : {},
+  _redditPrivacyFixes : true,
+  _imgurGifvRewrite : true,
 
   onStartup : function(aData, aReason) {
     this._observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
@@ -76,6 +78,10 @@ var cfc = {
     let host, url;
     var aChannel = aSubject.QueryInterface(Ci.nsIHttpChannel);
     var channelParams = loadContextGoodies(aChannel);
+    var aBrowser = null;
+    if (channelParams != null) {
+      aBrowser = channelParams.gBrowser;
+    }
     host = aSubject.URI.host;
     url = aSubject.URI.spec;
 
@@ -85,8 +91,32 @@ var cfc = {
        */
       if (this.isBlacklisted(host)) {
         cancelRequest(aSubject);
-        if (channelParams != null) {
-          this.fetchArchiveIs(channelParams.gBrowser, url);
+        if (aBrowser != null) {
+          this.fetchArchiveIs(aBrowser, url);
+        }
+        return;
+      }
+
+      /* Reddit plans to track outbound clicks with some JavaScript
+       * bullshit, where "plans" is currently "on hold due to lack of privacy
+       * controls".  Stomp on that hard.
+       */
+      if (this._redditPrivacyFixes) {
+        if (host == "events.redditmedia.com" ||
+            host == "out.reddit.com") {
+          cancelRequest(aSubject);
+          return;
+        }
+      }
+
+      /* imgur's gifv's use WebM and don't play with the security slider
+       * set to sensible values.  Automatically rewrite if desired.
+       */
+      if (this._imgurGifvRewrite) {
+        if (host.endsWith("imgur.com") && url.toLowerCase().endsWith(".gifv")) {
+          cancelRequest(aSubject);
+          this.fetch(aBrowser, url.slice(0, -1));
+          return;
         }
       }
     } else if (ON_EXAMINE_RESPONSE == aTopic) {
@@ -127,17 +157,17 @@ var cfc = {
         if (CFPolicy.DENY_GLOBAL == this._cfPolicy) {
           cancelRequest(aSubject);
           this.blacklist(host);
-          if (channelParams != null) {
-            this.fetchArchiveIs(channelParams.gBrowser, url);
+          if (aBrowser != null) {
+            this.fetchArchiveIs(aBrowser, url);
           }
         } else {
           // Per site or automatic redirect on captcha.
-          if (channelParams != null && channelParams.gBrowser != null) {
+          if (aBrowser != null) {
             var trampoline;
             trampoline = function(aEvent) {
-              cfc.onPageLoad(channelParams.gBrowser, trampoline, aEvent);
+              cfc.onPageLoad(aBrowser, trampoline, aEvent);
             };
-            channelParams.gBrowser.addEventListener(ON_PAGE_LOAD, trampoline, false);
+            aBrowser.addEventListener(ON_PAGE_LOAD, trampoline, false);
           }
         }
       }
@@ -220,9 +250,13 @@ var cfc = {
 
   archiveNotificationCallback : function(aReason) {},
 
-  fetchArchiveIs : function(aBrowser, aURL) {
+  fetch: function(aBrowser, aURL) {
     let flags = Ci.nsIWebNavigation.LOAD_FLAGS_IS_REFRESH;
-    aBrowser.loadURIWithFlags("https://archive.is/timegate/" + aURL, flags);
+    aBrowser.loadURIWithFlags(aURL, flags);
+  },
+
+  fetchArchiveIs : function(aBrowser, aURL) {
+    this.fetch(aBrowser, "https://archive.is/timegate/" + aURL);
   },
 
   isWhitelisted : function(aHost) {
