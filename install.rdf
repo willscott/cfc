@@ -12,6 +12,7 @@
     <em:homepageURL>https://git.schwanenlied.me/yawning/cfc.git</em:homepageURL>
     <em:bootstrap>true</em:bootstrap>
     <em:type>2</em:type>
+    <em:unpack>false</em:unpack>
 
     <!-- Mozilla Firefox -->
     <em:targetApplication>

@@ -32,11 +32,13 @@ function loadContextGoodies(httpChannel) {
     // No load context, it's probably loading a resource.
     return null;
   } else {
-    var contentWindow = loadContext.associatedWindow;
-    if (!contentWindow) {
+    if (!loadContext.hasOwnProperty("associatedWindow")) {
       // This channel does not have a window, its probably loading a resource.
       return null;
-    } else {
+    }
+
+    try {
+      var contentWindow = loadContext.associatedWindow;
       var aDOMWindow = contentWindow.top.QueryInterface(Ci.nsIInterfaceRequestor)
         .getInterface(Ci.nsIWebNavigation)
         .QueryInterface(Ci.nsIDocShellTreeItem)
@@ -54,7 +56,7 @@ function loadContextGoodies(httpChannel) {
           browser: browser,
           contentWindow: contentWindow
         };
-      } catch (ex0) {}
-    }
+      } catch (ex1) {}
+    } catch (ex0) {}
   }
 }
