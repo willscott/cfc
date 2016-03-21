@@ -23,7 +23,7 @@ var EXPORTED_SYMBOLS = [ "cfc" ];
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/devtools/Console.jsm");
-Cu.import("resource://cfc/utils.jsm");
+Cu.import("chrome://cfc/content/utils.jsm");
 
 const ON_MODIFY_REQUEST = "http-on-modify-request";
 const ON_EXAMINE_RESPONSE = "http-on-examine-response";

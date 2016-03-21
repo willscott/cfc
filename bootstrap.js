@@ -27,13 +27,13 @@ Cu.import("resource://gre/modules/devtools/Console.jsm");
 //
 
 function startup(aData, aReason) {
-  Cu.import("resource://cfc/cfc.jsm");
+  Cu.import("chrome://cfc/content/cfc.jsm");
   cfc.onStartup(aData, aReason);
 }
 
 function shutdown(aData, aReason) {
-  Cu.import("resource://cfc/cfc.jsm");
   cfc.onShutdown(aData, aReason);
+  Cu.unload("chrome://cfc/content/cfc.jsm");
 }
 
 // Stubs for the install/uninstall hook.
