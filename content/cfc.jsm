@@ -42,6 +42,7 @@ function cancelRequest(aSubject) {
 
 var cfc = {
   _observerService : null,
+  _tldService : null,
 
   //_cfPolicy : CFPolicy.DENY_GLOBAL,
   _cfPolicy : CFPolicy.PER_SITE,
@@ -54,7 +55,8 @@ var cfc = {
   _imgurGifvRewrite : true,
 
   onStartup : function(aData, aReason) {
-    this._observerService = Cc["@mozilla.org/observer-service;1"].getService(Ci.nsIObserverService);
+    this._observerService = Services.obs;
+    this._tldService = Services.eTLD;
     this.init();
   },
 
@@ -75,27 +77,29 @@ var cfc = {
   },
 
   observe : function(aSubject, aTopic, aData) {
-    let host, url;
+    let uri, urlStr;
     var aChannel = aSubject.QueryInterface(Ci.nsIHttpChannel);
     var channelParams = loadContextGoodies(aChannel);
     var aBrowser = null;
     if (channelParams != null) {
       aBrowser = channelParams.gBrowser;
     }
-    host = aSubject.URI.host;
-    url = aSubject.URI.spec;
+    uri = aSubject.URI;
+    urlStr = aSubject.URI.spec;
 
     if (ON_MODIFY_REQUEST == aTopic) {
       /* Examine our censorship cache to see if we know that the target host
        * requires circumvention.
        */
-      if (this.isBlacklisted(host)) {
+      if (this.isBlacklisted(uri)) {
         cancelRequest(aSubject);
         if (aBrowser != null) {
-          this.fetchArchiveIs(aBrowser, url);
+          this.fetchArchiveIs(aBrowser, urlStr);
         }
         return;
       }
+
+      var host = uri.host;
 
       /* Reddit plans to track outbound clicks with some JavaScript
        * bullshit, where "plans" is currently "on hold due to lack of privacy
@@ -113,15 +117,15 @@ var cfc = {
        * set to sensible values.  Automatically rewrite if desired.
        */
       if (this._imgurGifvRewrite) {
-        if (host.endsWith("imgur.com") && url.toLowerCase().endsWith(".gifv")) {
+        if (host.endsWith("imgur.com") && urlStr.toLowerCase().endsWith(".gifv")) {
           cancelRequest(aSubject);
-          this.fetch(aBrowser, url.slice(0, -1));
+          this.fetch(aBrowser, urlStr.slice(0, -1));
           return;
         }
       }
     } else if (ON_EXAMINE_RESPONSE == aTopic) {
       /* Skip further processing on whitelisted hosts. */
-      if (this.isWhitelisted(host)) {
+      if (this.isWhitelisted(uri)) {
         return;
       }
 
@@ -156,9 +160,9 @@ var cfc = {
 
         if (CFPolicy.DENY_GLOBAL == this._cfPolicy) {
           cancelRequest(aSubject);
-          this.blacklist(host);
+          this.blacklist(uri);
           if (aBrowser != null) {
-            this.fetchArchiveIs(aBrowser, url);
+            this.fetchArchiveIs(aBrowser, urlStr);
           }
         } else {
           // Per site or automatic redirect on captcha.
@@ -183,7 +187,11 @@ var cfc = {
     var doc = aEvent.originalTarget;
     var win = doc.defaultView;
 
-    /* Suppress further processing for things like xul:image (favicon). */
+    /* Suppress further processing for things like xul:image (favicon).
+     *
+     * XXX: 99% sure this will never happen since resource fetches will fail
+     * to return a `gBrowser` object.
+     */
     if (doc.nodeName != "#document") {
       return;
     }
@@ -259,15 +267,24 @@ var cfc = {
     this.fetch(aBrowser, "https://archive.is/timegate/" + aURL);
   },
 
-  isWhitelisted : function(aHost) {
-    return this._internalWhitelist.hasOwnProperty(aHost); // XXX: User whitelist.
+  getURIDomain : function(aURI) {
+    try {
+      var urlDomain = this._tldService.getBaseDomain(aURI, 0);
+      return urlDomain;
+    } catch(ex) {
+      return aURI.host;
+    }
   },
 
-  isBlacklisted : function(aHost) {
-    return this._blacklist.hasOwnProperty(aHost);
+  isWhitelisted : function(aURI) {
+    return this._internalWhitelist.hasOwnProperty(this.getURIDomain(aURI)); // XXX: User whitelist.
   },
 
-  blacklist : function(aHost) {
-    this._blacklist[aHost] = true;
+  isBlacklisted : function(aURI) {
+    return this._blacklist.hasOwnProperty(this.getURIDomain(aURI));
+  },
+
+  blacklist : function(aURI) {
+    this._blacklist[this.getURIDomain(aURI)] = true;
   },
 };
