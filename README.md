@@ -22,8 +22,9 @@ Notes:
    isolation.  Fixing this issue correctly requires a Tor Browser patch.
    You have been warned, twice.
 
- * When XUL goes away this will break and need substantial rewrites.  Yes,
-   I should have used the SDK, but node.js makes me want to cut myself.
+ * This is a bastard combination of a bootstrapped (restartless) addon,
+   and SDK calls.  Mandatory use of WebExtensions or the architectural shift
+   to "e10s" will require rewrites.
 
  * The first access to a site will incur minor additional network overhead
    on a per-session basis.

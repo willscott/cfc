@@ -1,0 +1,17 @@
+{
+  "title": "cfc",
+  "name": "cfc",
+  "version": "0.0.1",
+  "id": "cfc@schwanenlied.me",
+  "description": "Improve the Tor Browser user experience",
+  "main": "index.js",
+  "author": "Yawning Angel",
+  "engines": {
+    "firefox": ">=38.0a1"
+  },
+  "license": "GPL",
+  "keywords": [
+    "jetpack"
+  ],
+  "permissions": {"private-browsing": true}
+}
