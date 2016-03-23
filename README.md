@@ -23,8 +23,8 @@ Notes:
    You have been warned, twice.
 
  * This is a bastard combination of a bootstrapped (restartless) addon,
-   and SDK calls.  Mandatory use of WebExtensions or the architectural shift
-   to "e10s" will require rewrites.
+   and SDK calls.  It however does use Content Scripts, so it may survive
+   the transition to e10s.
 
  * The first access to a site will incur minor additional network overhead
    on a per-session basis.

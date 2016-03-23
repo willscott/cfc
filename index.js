@@ -22,29 +22,20 @@ var self = require("sdk/self");
 var tabs = require("sdk/tabs");
 var pageMod = require("sdk/page-mod");
 var preferences = require("sdk/simple-prefs").prefs;
+var parseUri = require("./parseuri.js").parseUri;
 var { when: unload } = require("sdk/system/unload");
 var { Ci, Cu, Cr } = require("chrome");
 Cu.import("resource://gre/modules/Services.jsm");
-
-const { getMostRecentBrowserWindow } = require("sdk/window/utils");
 
 const ON_MODIFY_REQUEST = "http-on-modify-request";
 const ON_EXAMINE_RESPONSE = "http-on-examine-response";
 const ON_PAGE_LOAD = "DOMContentLoaded";
 
-const ARCHIVE_POPUP_ID = "cfc-archive-popup";
-const ARCHIVE_NOTIFICATION_BOX_ID = "cfc-archive-notification";
-
 var CFPolicy = {
   ALLOW_GLOBAL : 0,
   DENY_GLOBAL : 1,
   DENY_CAPTCHA : 2,
-  PER_SITE : 3,
-};
-
-var CFStyle = {
-  POPUPNOTIFICATION : 0,
-  NOTIFICATIONBOX : 1,
+  PER_SITE : 3
 };
 
 /*
@@ -112,6 +103,14 @@ function getURIDomain(aURI) {
     }
 }
 
+function getBaseDomainFromHost(aHost) {
+  try {
+    return Services.eTLD.getBaseDomainFromHost(aHost, 0);
+  } catch(ex) {
+    return null;
+  }
+}
+
 var cfc = {
   _internalWhitelist: {
     "archive.is": true,
@@ -124,13 +123,15 @@ var cfc = {
     Services.obs.addObserver(this, ON_MODIFY_REQUEST, false);
     Services.obs.addObserver(this, ON_EXAMINE_RESPONSE, false);
 
-    if (preferences.cfRewrite) {
-      pageMod.PageMod({
-        include: "*",
-        contentScriptFile: "./whyCaptchaRewrite.js",
-        contentScriptWhen: "ready"
-      });
-    }
+    pageMod.PageMod({
+      include: "*",
+      contentScriptFile: "./whyCaptchaRewrite.js",
+      contentScriptWhen: "ready",
+      contentScriptOptions: {
+        "snark": preferences.cfRewrite
+      },
+      onAttach: this.onAttach
+    });
 
     unload(this.onShutdown);
   },
@@ -226,124 +227,24 @@ var cfc = {
             this.fetchArchiveIs(aBrowser, uriStr);
           }
         } else {
-          /* Per site or automatic redirect on captcha.  This is the "wrong"
-           * way to do this, with the "right" way involving attaching a page
-           * script to the tab, and some IPC.
+          /* Per site or automatic redirect on captcha.  The pagemod code
+           * handles all of this for us.
            */
-          if (aBrowser != null) {
-            var trampoline;
-            trampoline = function(aEvent) {
-              cfc.onPageLoad(aBrowser, trampoline, aEvent);
-            };
-            aBrowser.addEventListener(ON_PAGE_LOAD, trampoline, false);
-          }
         }
       }
     }
   },
 
-  onPageLoad: function(aBrowser, aTrampoline, aEvent) {
-    /* WARNING: DO NOt MODIFY THE DOM FROM WITHIN THIS ROUTINE.
-     *
-     * It's sort of ok to do things the "wrong" way since all I'm doing is
-     * inspecting the DOM.  Since content scripts dont' appear to be able to
-     * add browser UI elements (like a notification box/door hanger), IPC
-     * is required which is overcomplicated for now.
-     *
-     * If you modify the DOM, scripts that are part of the page can see
-     * your changes.  Attach a content script on the `ready` or `pageshow`
-     * tab event. and modify the DOM from there, since that has isolation.
-     */
-
-    /* Remove the onPageLoad handler so that loading resources doesn't trigger
-     * the code.
-     */
-    aBrowser.removeEventListener(ON_PAGE_LOAD, aTrampoline);
-
-    var doc = aEvent.originalTarget;
-    var win = doc.defaultView;
-
-    /* Suppress further processing for things like xul:image (favicon).
-     *
-     * XXX: 99% sure this will never happen since resource fetches will fail
-     * to return a `gBrowser` object.
-     */
-    if (doc.nodeName != "#document") {
-      return;
+  onAttach: function(aWorker) {
+    var uri = parseUri(aWorker.url);
+    if (cfc.isCloudFlare(uri["host"])) {
+      var scriptParams = {
+        "button": true,
+        "redirect": CFPolicy.DENY_CAPTCHA == preferences.cfPolicy,
+        "snark": preferences.cfRewrite
+      };
+      aWorker.port.emit("cfRewrite", scriptParams);
     }
-
-    /* Only want to peek into the DOM and take action on a captcha. */
-    if (doc.title != "Attention Required! | CloudFlare") {
-      return;
-    }
-
-    /* Reach into the DOM to ensure that this really is a captcha page. */
-
-    var container = doc.body.querySelector(".cf-captcha-container");
-    if (container == null) {
-      return;
-    }
-    var formEle = container.querySelector(".challenge-form");
-    if (formEle == null) {
-      return;
-    }
-
-    if (CFPolicy.DENY_CAPTCHA == preferences.cfPolicy) {
-      this.fetchArchiveIs(aBrowser, doc.URL);
-      return;
-    }
-
-    if (CFStyle.POPUPNOTIFICATION == preferences.cfStyle) {
-      this.archivePopupNotification(aBrowser, doc.URL);
-    } else if (CFStyle.NOTIFICATIONBOX == preferences.cfStyle) {
-      this.archiveNotificationBox(aBrowser, doc.URL);
-    }
-  },
-
-  archivePopupNotification: function(aBrowser, aURL) {
-    let { PopupNotifications } = getMostRecentBrowserWindow();
-
-    PopupNotifications.show(
-      getMostRecentBrowserWindow().gBrowser.selectedBrowser,
-      ARCHIVE_POPUP_ID,
-      "CloudFlare Captcha detected!",
-      null, /* anchor ID */
-      {
-        label: "Fetch from archive.is",
-        accessKey: "a",
-        callback: function() {
-          cfc.fetchArchiveIs(aBrowser, aURL);
-        }
-      },
-      null,  /* secondary action */
-      {
-        persistence: 0, /* Clear on next page load. */
-        popupIconURL: self.data.url("spray-can-64.png"),
-      }
-      );
-  },
-
-  archiveNotificationBox: function(aBrowser, aURL) {
-    let notifyBox = aBrowser.getNotificationBox();
-    let buttons = [];
-
-    let button = {
-        isDefault: true,
-        accessKey: "a",
-        label: "Fetch from archive.is",
-        callback: function(aNotification, aButtonInfo, aEventTarget) {
-          cfc.fetchArchiveIs(aBrowser, aURL);
-        },
-        type: "", // If a popup, then must be: "menu-button" or "menu".
-        popup: null
-    };
-    buttons.push(button);
-
-    notifyBox.appendNotification("CloudFlare Captcha detected!",
-                                 ARCHIVE_NOTIFICATION_BOX_ID,
-                                 "",
-                                 notifyBox.PRIORITY_CRITICAL_HIGH, buttons,
-                                 null);
   },
 
   fetch: function(aURL) {
@@ -379,6 +280,10 @@ var cfc = {
       return true;
     }
     return this._blacklist.hasOwnProperty(domain);
+  },
+
+  isCloudFlare: function(aHost) {
+    return this._cflist.hasOwnProperty(getBaseDomainFromHost(aHost));
   },
 };
 
