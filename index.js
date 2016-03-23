@@ -20,6 +20,7 @@
 
 var self = require("sdk/self");
 var tabs = require("sdk/tabs");
+var preferences = require("sdk/simple-prefs").prefs;
 var { when: unload } = require("sdk/system/unload");
 var { Ci, Cu, Cr } = require("chrome");
 Cu.import("resource://gre/modules/Services.jsm");
@@ -31,12 +32,18 @@ const ON_EXAMINE_RESPONSE = "http-on-examine-response";
 const ON_PAGE_LOAD = "DOMContentLoaded";
 
 const ARCHIVE_POPUP_ID = "cfc-archive-popup";
+const ARCHIVE_NOTIFICATION_BOX_ID = "cfc-archive-notification";
 
 var CFPolicy = {
   ALLOW_GLOBAL : 0,
   DENY_GLOBAL : 1,
   DENY_CAPTCHA : 2,
   PER_SITE : 3,
+};
+
+var CFStyle = {
+  POPUPNOTIFICATION : 0,
+  NOTIFICATIONBOX : 1,
 };
 
 /*
@@ -112,11 +119,6 @@ var cfc = {
   _blacklist: {},
   _cflist: {},
 
-  /* XXX: Handle setting these from prefs. */
-  _cfPolicy: CFPolicy.PER_SITE,
-  _imgurGifvRewrite: true,
-  _redditOutboundLinkTracking: true,
-
   onStartup: function() {
     Services.obs.addObserver(this, ON_MODIFY_REQUEST, false);
     Services.obs.addObserver(this, ON_EXAMINE_RESPONSE, false);
@@ -156,7 +158,7 @@ var cfc = {
        * play nice with this, so rewrite the link to request the animated GIF
        * transparently.
        */
-      if (this._imgurGifvRewrite) {
+      if (preferences.imgurGifvRewrite) {
         if ("imgur.com" == domain && uriStr.toLowerCase().endsWith(".gifv")) {
           cancelRequest(aSubject);
           this.fetch(uriStr.slice(0, -1));
@@ -165,7 +167,7 @@ var cfc = {
       }
 
       /* Kill reddit.com's outbound link tracking with fire. */
-      if (this._redditOutboundLinkTracking) {
+      if (preferences.redditOutboundLinkTracking) {
         if ("events.redditmedia.com" == uri.host || "out.reddit.com" == uri.host) {
           cancelRequest(aSubject);
           return;
@@ -201,14 +203,14 @@ var cfc = {
       }
       this._cflist[getURIDomain(uri)] = true;
 
-      if (CFPolicy.ALLOW_GLOBAL == this._cfPolicy) {
+      if (CFPolicy.ALLOW_GLOBAL == preferences.cfPolicy) {
         return;
       } else {
         /* CloudFlare served the request, so handle it according to the
          * currently configured policy.
          */
 
-        if (CFPolicy.DENY_GLOBAL == this._cfPolicy) {
+        if (CFPolicy.DENY_GLOBAL == preferences.cfPolicy) {
           cancelRequest(aSubject);
           if (aBrowser != null) {
             this.fetchArchiveIs(aBrowser, uriStr);
@@ -267,33 +269,25 @@ var cfc = {
 
     /* Reach into the DOM to ensure that this really is a captcha page. */
 
-    /* All encompasing container element. */
-    var containerEle = doc.getElementsByClassName("cf-captcha-container");
-    if (containerEle.length == 0) {
+    var container = doc.body.querySelector(".cf-captcha-container");
+    if (container == null) {
+      return;
+    }
+    var formEle = container.querySelector(".challenge-form");
+    if (formEle == null) {
       return;
     }
 
-    /* Form element. */
-    let formEle;
-    for (var i = 0; i < containerEle.length; i++) {
-      formEle = containerEle[0].getElementsByClassName("challenge-form");
-      if (formEle.length != 0) {
-        break;
-      }
-      formEle = null;
-    }
-    if (!formEle) {
-      return;
-    }
-    formEle = formEle[0];
-
-    if (CFPolicy.DENY_CAPTCHA == this._cfPolicy) {
+    if (CFPolicy.DENY_CAPTCHA == preferences.cfPolicy) {
       this.fetchArchiveIs(aBrowser, doc.URL);
       return;
     }
 
-    this.archivePopupNotification(aBrowser, doc.URL);
-//  this.archiveNotificationBox(aBrowser, doc.URL);
+    if (CFStyle.POPUPNOTIFICATION == preferences.cfStyle) {
+      this.archivePopupNotification(aBrowser, doc.URL);
+    } else if (CFStyle.NOTIFICATIONBOX == preferences.cfStyle) {
+      this.archiveNotificationBox(aBrowser, doc.URL);
+    }
   },
 
   archivePopupNotification: function(aBrowser, aURL) {
@@ -336,7 +330,7 @@ var cfc = {
     buttons.push(button);
 
     notifyBox.appendNotification("CloudFlare Captcha detected!",
-                                 "cfc-archive-notification",
+                                 ARCHIVE_NOTIFICATION_BOX_ID,
                                  "",
                                  notifyBox.PRIORITY_CRITICAL_HIGH, buttons,
                                  null);
@@ -371,7 +365,7 @@ var cfc = {
 
   isBlacklisted: function(aURI) {
     var domain = getURIDomain(aURI);
-    if (CFPolicy.DENY_GLOBAL == this._cfPolicy && this._cflist.hasOwnProperty(domain)) {
+    if (CFPolicy.DENY_GLOBAL == preferences.cfPolicy && this._cflist.hasOwnProperty(domain)) {
       return true;
     }
     return this._blacklist.hasOwnProperty(domain);

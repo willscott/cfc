@@ -14,5 +14,62 @@
   "keywords": [
     "jetpack"
   ],
-  "permissions": {"private-browsing": true}
+  "permissions": {"private-browsing": true},
+  "preferences": [
+    {
+      "name": "cfPolicy",
+      "type": "menulist",
+      "title": "CloudFlare Policy",
+      "value": 0,
+      "options": [
+        {
+            "value": "0",
+            "label": "Allow CloudFlare globally ('I love street signs')"
+        },
+        {
+            "value": "1",
+            "label": "Deny CloudFlare globally (Always use archive.is)"
+        },
+        {
+            "value": "2",
+            "label": "Redirect to archive.is on Captcha"
+        },
+        {
+            "value": "3",
+            "label": "Ask to redirect on each Captcha"
+        }
+      ]
+    },
+    {
+      "name": "cfStyle",
+      "type": "menulist",
+      "title": "CloudFlare Captcha UI Style",
+      "value": 0,
+      "options": [
+        {
+            "value": "0",
+            "label": "PopupNotification (Recommended)"
+        },
+        {
+            "value": "1",
+            "label": "notificationbox (Detectable by page JS)"
+        }
+      ]
+    },
+    {
+      "name": "imgurGifvRewrite",
+      "type": "bool",
+      "title": "Rewrite imgur 'gifv' URLs",
+      "description": "Rewrite imgur 'gifv' URLs to 'gif'?",
+      "value": true
+    },
+    {
+      "name": "redditOutboundLinkTracking",
+      "type": "bool",
+      "title": "Block reddit.com outbound link tracking",
+      "description": "Kill requests to 'events.redditmedia.com'/'out.reddit.com'",
+      "value": false,
+      "hidden": true
+    }
+  ]
 }
