@@ -132,6 +132,14 @@ var cfc = {
       },
       onAttach: this.onAttach
     });
+    pageMod.PageMod({
+      include: "*.twitter.com",
+      contentScriptFile: "./twitterRewrite.js",
+      contentScriptWhen: "ready",
+      contentScriptOptions: {
+        "active": preferences.twitterLinkTracking
+      }
+    });
 
     unload(this.onShutdown);
   },
@@ -181,6 +189,15 @@ var cfc = {
       if (preferences.redditOutboundLinkTracking) {
         if ("events.redditmedia.com" == uri.host || "out.reddit.com" == uri.host) {
           cancelRequest(aSubject);
+          return;
+        }
+      }
+
+      /* Show useful twitter.com front page. */
+      if (preferences.twitterLinkTracking) {
+        if ("twitter.com" == domain && uriStr.toLowerCase().endsWith("twitter.com/")) {
+          cancelRequest(aSubject);
+          this.fetch(uriStr + "search");
           return;
         }
       }

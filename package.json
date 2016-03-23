@@ -58,6 +58,13 @@
       "description": "Kill requests to 'events.redditmedia.com'/'out.reddit.com'",
       "value": false,
       "hidden": true
+    },
+    {
+      "name": "twitterLinkTracking",
+      "type": "bool",
+      "title": "Block twitter.com outbound link tracking",
+      "description": "Skip requests to 't.co' when the full URL can be used directly",
+      "value": true
     }
   ]
 }
