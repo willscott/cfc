@@ -314,6 +314,7 @@ var cfc = {
       null,  /* secondary action */
       {
         persistence: 0, /* Clear on next page load. */
+        popupIconURL: self.data.url("spray-can-64.png"),
       }
       );
   },

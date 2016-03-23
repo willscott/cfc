@@ -10,6 +10,7 @@
     "firefox": ">=38.0a1"
   },
   "license": "GPL",
+  "icon": "resource://cfc-at-schwanenlied-dot-me/data/spray-can-48.png",
   "keywords": [
     "jetpack"
   ],
