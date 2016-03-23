@@ -65,7 +65,7 @@
       "title": "Skip twitter.com outbound link tracking",
       "description": "Skip requests to 't.co' when the full URL can be used directly",
       "value": true
-    }
+    },
     {
       "name": "bypassUselessHomepages",
       "type": "bool",

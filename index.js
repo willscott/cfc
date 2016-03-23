@@ -171,6 +171,12 @@ var cfc = {
           this.fetch(uriStr.slice(0, -1));
           return;
         }
+        if ("imgur.com" == domain && uriStr.toLowerCase().indexOf("gallery") == -1 &&
+            uriStr.substr(uriStr.lastIndexOf("/")).indexOf(".") == -1 ) {
+          cancelRequest(aSubject);
+          this.fetch(uriStr + ".jpg");
+          return;
+        }
       }
 
       /* Kill reddit.com's outbound link tracking with fire. */
