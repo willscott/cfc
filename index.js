@@ -20,6 +20,7 @@
 
 var self = require("sdk/self");
 var tabs = require("sdk/tabs");
+var pageMod = require("sdk/page-mod");
 var preferences = require("sdk/simple-prefs").prefs;
 var { when: unload } = require("sdk/system/unload");
 var { Ci, Cu, Cr } = require("chrome");
@@ -122,6 +123,15 @@ var cfc = {
   onStartup: function() {
     Services.obs.addObserver(this, ON_MODIFY_REQUEST, false);
     Services.obs.addObserver(this, ON_EXAMINE_RESPONSE, false);
+
+    if (preferences.cfRewrite) {
+      pageMod.PageMod({
+        include: "*",
+        contentScriptFile: "./whyCaptchaRewrite.js",
+        contentScriptWhen: "ready"
+      });
+    }
+
     unload(this.onShutdown);
   },
 

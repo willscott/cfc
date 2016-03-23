@@ -57,6 +57,13 @@
       ]
     },
     {
+      "name": "cfRewrite",
+      "type": "bool",
+      "title": "Improve CloudFlare Captcha messages",
+      "description": "Rewrite the CloudFlare Captcha messages to match reality (changes take effect on restart)",
+      "value": true
+    },
+    {
       "name": "imgurGifvRewrite",
       "type": "bool",
       "title": "Rewrite imgur 'gifv' URLs",
