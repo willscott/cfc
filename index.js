@@ -21,7 +21,8 @@
 var self = require("sdk/self");
 var tabs = require("sdk/tabs");
 var pageMod = require("sdk/page-mod");
-var preferences = require("sdk/simple-prefs").prefs;
+var simplePrefs = require("sdk/simple-prefs");
+var preferences = simplePrefs.prefs;
 var parseUri = require("./parseuri.js").parseUri;
 var { when: unload } = require("sdk/system/unload");
 var { Ci, Cu, Cr } = require("chrome");
@@ -118,28 +119,15 @@ var cfc = {
   },
   _blacklist: {},
   _cflist: {},
+  _cfMod: null,
+  _twitterMod: null,
 
   onStartup: function() {
     Services.obs.addObserver(this, ON_MODIFY_REQUEST, false);
     Services.obs.addObserver(this, ON_EXAMINE_RESPONSE, false);
 
-    pageMod.PageMod({
-      include: "*",
-      contentScriptFile: "./whyCaptchaRewrite.js",
-      contentScriptWhen: "ready",
-      contentScriptOptions: {
-        "snark": preferences.cfRewrite
-      },
-      onAttach: this.onAttach
-    });
-    pageMod.PageMod({
-      include: "*.twitter.com",
-      contentScriptFile: "./twitterRewrite.js",
-      contentScriptWhen: "ready",
-      contentScriptOptions: {
-        "active": preferences.twitterLinkTracking
-      }
-    });
+    this.attachMods();
+    simplePrefs.on("", this.attachMods.bind(this));
 
     unload(this.onShutdown);
   },
@@ -261,6 +249,31 @@ var cfc = {
         "snark": preferences.cfRewrite
       };
       aWorker.port.emit("cfRewrite", scriptParams);
+    }
+  },
+
+  attachMods: function () {
+    if (this._cfMod) {
+      this._cfMod.destroy();
+    }
+    this._cfMod = pageMod.PageMod({
+      include: "*",
+      contentScriptFile: "./whyCaptchaRewrite.js",
+      contentScriptWhen: "ready",
+      contentScriptOptions: {
+        "snark": preferences.cfRewrite
+      },
+      onAttach: this.onAttach
+    });
+    if (this._twitterMod) {
+      this._twitterMod.destroy();
+    }
+    if (preferences.twitterLinkTracking) {
+      this._twitterMod = pageMod.PageMod({
+        include: "*.twitter.com",
+        contentScriptFile: "./twitterRewrite.js",
+        contentScriptWhen: "ready"
+      });
     }
   },
 
