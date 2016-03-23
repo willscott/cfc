@@ -181,9 +181,10 @@ var cfc = {
         }
       }
 
-      /* Show useful twitter.com front page. */
-      if (preferences.twitterLinkTracking) {
-        if ("twitter.com" == domain && uriStr.toLowerCase().endsWith("twitter.com/")) {
+      /* Show useful twitter / github front page. */
+      if (preferences.bypassUselessHomepages) {
+        if (("twitter.com" == domain && uriStr.toLowerCase().endsWith("twitter.com/")) ||
+            ("github.com" == domain && uriStr.toLowerCase().endsWith("github.com/"))) {
           cancelRequest(aSubject);
           this.fetch(uriStr + "search");
           return;

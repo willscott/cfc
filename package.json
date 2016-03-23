@@ -62,8 +62,15 @@
     {
       "name": "twitterLinkTracking",
       "type": "bool",
-      "title": "Block twitter.com outbound link tracking",
+      "title": "Skip twitter.com outbound link tracking",
       "description": "Skip requests to 't.co' when the full URL can be used directly",
+      "value": true
+    }
+    {
+      "name": "bypassUselessHomepages",
+      "type": "bool",
+      "title": "Bypass Useless homepages",
+      "description": "signup pages like twitter.com and github.com should instead default to search",
       "value": true
     }
   ]
