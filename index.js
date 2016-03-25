@@ -256,7 +256,7 @@ var cfc = {
     }
     this._cfMod = pageMod.PageMod({
       include: "*",
-      contentScriptFile: "./whyCaptchaRewrite.js",
+      contentScriptFile: "./cloudflareRewrite.js",
       contentScriptWhen: "ready",
       contentScriptOptions: {
         "button": true,

@@ -42,7 +42,7 @@ self.port.on("cfRewrite", function(params) {
       // Strip out the data-translate tag to prevent the page script from
       // attempting to localize my improved "Why" explanation.
       whyEle.removeAttribute("data-translate");
-      whyEle.innerHTML = "Because despite being a huge company with tons of resources, we don't really give a shit about Tor users, still think that IP addresses are good identifiers despite the prevalence of NATs, and will only make token efforts to improve our primitive IP address based reputation system whenever there is negative PR associated with censorship.";
+      whyEle.innerHTML = "Because CloudFlare as a company hates privacy and only pretends to care when there is negative PR fallout.";
   }
 
     var avEle = document.querySelector("p[data-translate='resolve_captcha_antivirus']");
