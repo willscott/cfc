@@ -134,8 +134,9 @@ var cfc = {
 
   onShutdown: function(aReason) {
     try {
-      Services.obs.removeObserver(this, ON_MODIFY_REQUEST);
-      Services.obs.removeObserver(this, ON_EXAMINE_RESPONSE);
+      simplePrefs.removeListener("", cfc.attachMods);
+      Services.obs.removeObserver(cfc, ON_MODIFY_REQUEST);
+      Services.obs.removeObserver(cfc, ON_EXAMINE_RESPONSE);
     } catch(ex) {}
   },
 
@@ -244,30 +245,29 @@ var cfc = {
   onAttach: function(aWorker) {
     var uri = parseUri(aWorker.url);
     if (cfc.isCloudFlare(uri["host"])) {
-      var scriptParams = {
-        "button": true,
-        "redirect": CFPolicy.DENY_CAPTCHA == preferences.cfPolicy,
-        "snark": preferences.cfRewrite
-      };
-      aWorker.port.emit("cfRewrite", scriptParams);
+      aWorker.port.emit("cfRewrite", true);
     }
   },
 
   attachMods: function () {
     if (this._cfMod) {
       this._cfMod.destroy();
+      this._cfMod = null;
     }
     this._cfMod = pageMod.PageMod({
       include: "*",
       contentScriptFile: "./whyCaptchaRewrite.js",
       contentScriptWhen: "ready",
       contentScriptOptions: {
+        "button": true,
+        "redirect": CFPolicy.DENY_CAPTCHA == preferences.cfPolicy,
         "snark": preferences.cfRewrite
       },
       onAttach: this.onAttach
     });
     if (this._twitterMod) {
       this._twitterMod.destroy();
+      this._twitterMod = null;
     }
     if (preferences.twitterLinkTracking) {
       this._twitterMod = pageMod.PageMod({

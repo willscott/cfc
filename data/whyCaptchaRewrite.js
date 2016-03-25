@@ -12,12 +12,12 @@ self.port.on("cfRewrite", function(params) {
     return;
   }
 
-  if (params["redirect"]) {
+  if (self.options.redirect) {
     window.location.replace("https://archive.is/timegate/" + window.location.href);
     return;
   }
 
-  if (params["button"]) {
+  if (self.options.button) {
     buttonEle = formEle.querySelector("cfc-button");
     if (buttonEle == null) {
       var injectPoint = formEle.parentNode;
@@ -36,7 +36,7 @@ self.port.on("cfRewrite", function(params) {
     }
   }
 
-  if (params["snark"]) {
+  if (self.options.snark) {
     var whyEle = document.querySelector("p[data-translate='why_captcha_detail']");
     if (whyEle != null) {
       // Strip out the data-translate tag to prevent the page script from
