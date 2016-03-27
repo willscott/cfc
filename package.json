@@ -1,7 +1,7 @@
 {
   "title": "cfc",
   "name": "cfc",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "id": "cfc@schwanenlied.me",
   "description": "Improve the Tor Browser user experience",
   "main": "index.js",
