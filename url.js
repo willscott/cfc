@@ -9,6 +9,7 @@
   'use strict';
 
   // feature detect for URL constructor
+/*
   var hasWorkingUrl = false;
   if (!scope.forceJURL) {
     try {
@@ -20,6 +21,7 @@
 
   if (hasWorkingUrl)
     return;
+ */
 
   var relative = Object.create(null);
   relative['ftp'] = 21;
