@@ -23,7 +23,7 @@ var tabs = require("sdk/tabs");
 var pageMod = require("sdk/page-mod");
 var simplePrefs = require("sdk/simple-prefs");
 var preferences = simplePrefs.prefs;
-var parseUri = require("./parseuri.js").parseUri;
+var jurl = require("./url.js");
 var { when: unload } = require("sdk/system/unload");
 var { Ci, Cu, Cr } = require("chrome");
 Cu.import("resource://gre/modules/Services.jsm");
@@ -243,8 +243,8 @@ var cfc = {
   },
 
   onAttach: function(aWorker) {
-    var uri = parseUri(aWorker.url);
-    if (cfc.isCloudFlare(uri["host"])) {
+    var uri = new jurl.URL(aWorker.url);
+    if (cfc.isCloudFlare(uri.hostname)) {
       aWorker.port.emit("cfRewrite", true);
     }
   },
