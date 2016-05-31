@@ -182,6 +182,14 @@ var cfc = {
         }
       }
 
+      /* Kill viglink.com's tracking/referal code hijacking. */
+      if (preferences.viglinkTracking) {
+        if ("viglink.com" == domain) {
+          cancelRequest(aSubject);
+          return;
+        }
+      }
+
       /* Show useful twitter / github front page. */
       if (preferences.bypassUselessHomepages) {
         if (("twitter.com" == domain && uriStr.toLowerCase().endsWith("twitter.com/")) ||
