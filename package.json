@@ -1,7 +1,7 @@
 {
   "title": "cfc",
   "name": "cfc",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "id": "cfc@schwanenlied.me",
   "description": "Improve the Tor Browser user experience",
   "main": "index.js",
@@ -48,7 +48,7 @@
       "name": "imgurGifvRewrite",
       "type": "bool",
       "title": "Rewrite imgur 'gifv' URLs",
-      "description": "Rewrite imgur 'gifv' URLs to 'gif'?",
+      "description": "Rewrite imgur 'gifv' URLs to 'gif'",
       "value": true
     },
     {
@@ -58,6 +58,13 @@
       "description": "Kill requests to 'events.redditmedia.com'/'out.reddit.com'",
       "value": false,
       "hidden": true
+    },
+    {
+      "name": "viglinkTracking",
+      "type": "bool",
+      "title": "Block viglink.com tracking/referal code hijacking",
+      "description": "Kill requests to '*.viglink.com'",
+      "value": true
     },
     {
       "name": "twitterLinkTracking",
@@ -70,7 +77,7 @@
       "name": "bypassUselessHomepages",
       "type": "bool",
       "title": "Bypass Useless homepages",
-      "description": "signup pages like twitter.com and github.com should instead default to search",
+      "description": "Signup pages like twitter.com and github.com should instead default to search",
       "value": true
     }
   ]

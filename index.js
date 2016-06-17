@@ -23,7 +23,7 @@ var tabs = require("sdk/tabs");
 var pageMod = require("sdk/page-mod");
 var simplePrefs = require("sdk/simple-prefs");
 var preferences = simplePrefs.prefs;
-var parseUri = require("./parseuri.js").parseUri;
+var jurl = require("./url.js");
 var { when: unload } = require("sdk/system/unload");
 var { Ci, Cu, Cr } = require("chrome");
 Cu.import("resource://gre/modules/Services.jsm");
@@ -134,8 +134,9 @@ var cfc = {
 
   onShutdown: function(aReason) {
     try {
-      Services.obs.removeObserver(this, ON_MODIFY_REQUEST);
-      Services.obs.removeObserver(this, ON_EXAMINE_RESPONSE);
+      simplePrefs.removeListener("", cfc.attachMods);
+      Services.obs.removeObserver(cfc, ON_MODIFY_REQUEST);
+      Services.obs.removeObserver(cfc, ON_EXAMINE_RESPONSE);
     } catch(ex) {}
   },
 
@@ -182,6 +183,14 @@ var cfc = {
       /* Kill reddit.com's outbound link tracking with fire. */
       if (preferences.redditOutboundLinkTracking) {
         if ("events.redditmedia.com" == uri.host || "out.reddit.com" == uri.host) {
+          cancelRequest(aSubject);
+          return;
+        }
+      }
+
+      /* Kill viglink.com's tracking/referal code hijacking. */
+      if (preferences.viglinkTracking) {
+        if ("viglink.com" == domain) {
           cancelRequest(aSubject);
           return;
         }
@@ -248,32 +257,31 @@ var cfc = {
   },
 
   onAttach: function(aWorker) {
-    var uri = parseUri(aWorker.url);
-    if (cfc.isCloudFlare(uri["host"])) {
-      var scriptParams = {
-        "button": true,
-        "redirect": CFPolicy.DENY_CAPTCHA == preferences.cfPolicy,
-        "snark": preferences.cfRewrite
-      };
-      aWorker.port.emit("cfRewrite", scriptParams);
+    var uri = new jurl.URL(aWorker.url);
+    if (cfc.isCloudFlare(uri.hostname)) {
+      aWorker.port.emit("cfRewrite", true);
     }
   },
 
   attachMods: function () {
     if (this._cfMod) {
       this._cfMod.destroy();
+      this._cfMod = null;
     }
     this._cfMod = pageMod.PageMod({
       include: "*",
-      contentScriptFile: "./whyCaptchaRewrite.js",
+      contentScriptFile: "./cloudflareRewrite.js",
       contentScriptWhen: "ready",
       contentScriptOptions: {
+        "button": true,
+        "redirect": CFPolicy.DENY_CAPTCHA == preferences.cfPolicy,
         "snark": preferences.cfRewrite
       },
       onAttach: this.onAttach
     });
     if (this._twitterMod) {
       this._twitterMod.destroy();
+      this._twitterMod = null;
     }
     if (preferences.twitterLinkTracking) {
       this._twitterMod = pageMod.PageMod({
