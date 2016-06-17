@@ -147,6 +147,11 @@ var cfc = {
     var uri = aSubject.URI;
     var uriStr = uri.spec;
 
+    var aTabBrowser = (channelParams != null) ? channelParams.browser : null;
+    if (aTabBrowser == null) {
+      aTabBrowser = aBrowser;
+    }
+
     if (ON_MODIFY_REQUEST == aTopic) {
       /* Examine our censorship cache to see if we know that the target host
        * requires circumvention.
@@ -169,7 +174,7 @@ var cfc = {
       if (preferences.imgurGifvRewrite) {
         if ("imgur.com" == domain && uriStr.toLowerCase().endsWith(".gifv")) {
           cancelRequest(aSubject);
-          this.fetch(uriStr.slice(0, -1));
+          this.fetch(aTabBrowser, uriStr.slice(0, -1));
           return;
         }
       }
@@ -195,7 +200,7 @@ var cfc = {
         if (("twitter.com" == domain && uriStr.toLowerCase().endsWith("twitter.com/")) ||
             ("github.com" == domain && uriStr.toLowerCase().endsWith("github.com/"))) {
           cancelRequest(aSubject);
-          this.fetch(uriStr + "search");
+          this.fetch(aTabBrowser, uriStr + "search");
           return;
         }
       }
@@ -286,9 +291,10 @@ var cfc = {
     }
   },
 
-  fetch: function(aURL) {
+  fetch: function(aTabBrowser, aURL) {
     /* Load without replacing history. */
-    tabs.activeTab.url = aURL;
+    let flags = Ci.nsIWebNavigation.LOAD_FLAGS_STOP_CONTENT;
+    aTabBrowser.loadURIWithFlags(aURL, flags);
   },
 
   fetchArchiveIs: function(aBrowser, aURL) {
