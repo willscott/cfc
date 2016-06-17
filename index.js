@@ -112,6 +112,24 @@ function getBaseDomainFromHost(aHost) {
   }
 }
 
+function getURIQuery(aURI) {
+  var url = new jurl.URL(aURI);
+  var qs = (function(a) {
+    if (a == "") return {};
+    var b = {};
+    for (var i = 0; i < a.length; ++i) {
+      var p=a[i].split('=', 2);
+      if (p.length == 1)
+        b[p[0]] = "";
+      else
+        b[p[0]] = decodeURIComponent(p[1].replace(/\+/g, " "));
+    }
+    return b;
+  })(url.search.substr(1).split('&'));
+
+  return qs;
+}
+
 var cfc = {
   _internalWhitelist: {
     "archive.is": true,
@@ -191,6 +209,12 @@ var cfc = {
       if (preferences.viglinkTracking) {
         if ("viglink.com" == domain) {
           cancelRequest(aSubject);
+          if (uri.host == "redirect.viglink.com") {
+            try {
+              var qs =  getURIQuery(uriStr);
+              this.fetch(aTabBrowser, qs["u"]);
+            } catch(ex) {}
+          }
           return;
         }
       }
@@ -223,7 +247,7 @@ var cfc = {
              null != aSubject.getResponseHeader("CF-RAY"))) {
           cfHosted = true;
         }
-      } catch (ex) {
+      } catch(ex) {
         /* XXX: Should probably handle this properly, but just suppress
          * exceptions for now under the assumption that the site isn't
          * hosted by the evil empire.
