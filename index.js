@@ -112,6 +112,24 @@ function getBaseDomainFromHost(aHost) {
   }
 }
 
+function getURIQuery(aURI) {
+  var url = new jurl.URL(aURI);
+  var qs = (function(a) {
+    if (a == "") return {};
+    var b = {};
+    for (var i = 0; i < a.length; ++i) {
+      var p=a[i].split('=', 2);
+      if (p.length == 1)
+        b[p[0]] = "";
+      else
+        b[p[0]] = decodeURIComponent(p[1].replace(/\+/g, " "));
+    }
+    return b;
+  })(url.search.substr(1).split('&'));
+
+  return qs;
+}
+
 var cfc = {
   _internalWhitelist: {
     "archive.is": true,
@@ -147,6 +165,11 @@ var cfc = {
     var uri = aSubject.URI;
     var uriStr = uri.spec;
 
+    var aTabBrowser = (channelParams != null) ? channelParams.browser : null;
+    if (aTabBrowser == null) {
+      aTabBrowser = aBrowser;
+    }
+
     if (ON_MODIFY_REQUEST == aTopic) {
       /* Examine our censorship cache to see if we know that the target host
        * requires circumvention.
@@ -169,7 +192,7 @@ var cfc = {
       if (preferences.imgurGifvRewrite) {
         if ("imgur.com" == domain && uriStr.toLowerCase().endsWith(".gifv")) {
           cancelRequest(aSubject);
-          this.fetch(uriStr.slice(0, -1));
+          this.fetch(aTabBrowser, uriStr.slice(0, -1));
           return;
         }
         if ("imgur.com" == domain && uriStr.toLowerCase().indexOf("gallery") == -1 &&
@@ -192,6 +215,12 @@ var cfc = {
       if (preferences.viglinkTracking) {
         if ("viglink.com" == domain) {
           cancelRequest(aSubject);
+          if (uri.host == "redirect.viglink.com") {
+            try {
+              var qs =  getURIQuery(uriStr);
+              this.fetch(aTabBrowser, qs["u"]);
+            } catch(ex) {}
+          }
           return;
         }
       }
@@ -201,7 +230,7 @@ var cfc = {
         if (("twitter.com" == domain && uriStr.toLowerCase().endsWith("twitter.com/")) ||
             ("github.com" == domain && uriStr.toLowerCase().endsWith("github.com/"))) {
           cancelRequest(aSubject);
-          this.fetch(uriStr + "search");
+          this.fetch(aTabBrowser, uriStr + "search");
           return;
         }
       }
@@ -224,7 +253,7 @@ var cfc = {
              null != aSubject.getResponseHeader("CF-RAY"))) {
           cfHosted = true;
         }
-      } catch (ex) {
+      } catch(ex) {
         /* XXX: Should probably handle this properly, but just suppress
          * exceptions for now under the assumption that the site isn't
          * hosted by the evil empire.
@@ -292,9 +321,10 @@ var cfc = {
     }
   },
 
-  fetch: function(aURL) {
+  fetch: function(aTabBrowser, aURL) {
     /* Load without replacing history. */
-    tabs.activeTab.url = aURL;
+    let flags = Ci.nsIWebNavigation.LOAD_FLAGS_STOP_CONTENT;
+    aTabBrowser.loadURIWithFlags(aURL, flags);
   },
 
   fetchArchiveIs: function(aBrowser, aURL) {
