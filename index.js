@@ -18,20 +18,6 @@
 
 "use strict";
 
-var self = require("sdk/self");
-var tabs = require("sdk/tabs");
-var pageMod = require("sdk/page-mod");
-var simplePrefs = require("sdk/simple-prefs");
-var preferences = simplePrefs.prefs;
-var jurl = require("./url.js");
-var { when: unload } = require("sdk/system/unload");
-var { Ci, Cu, Cr } = require("chrome");
-Cu.import("resource://gre/modules/Services.jsm");
-
-const ON_MODIFY_REQUEST = "http-on-modify-request";
-const ON_EXAMINE_RESPONSE = "http-on-examine-response";
-const ON_PAGE_LOAD = "DOMContentLoaded";
-
 var CFPolicy = {
   ALLOW_GLOBAL : 0,
   DENY_GLOBAL : 1,
@@ -39,93 +25,29 @@ var CFPolicy = {
   PER_SITE : 3
 };
 
-/*
- * This function gets the contentWindow and other good stuff from loadContext of
- * httpChannel.
- *
- * Taken from: https://developer.mozilla.org/en-US/Add-ons/Code_snippets/Tabbed_browser
- * with correctness fixes.
- */
-function loadContextGoodies(httpChannel) {
-  var loadContext;
-  try {
-    var interfaceRequestor = httpChannel.notificationCallbacks.QueryInterface(Ci.nsIInterfaceRequestor);
-    try {
-      loadContext = interfaceRequestor.getInterface(Ci.nsILoadContext);
-    } catch (ex) {
-      try {
-        loadContext = subject.loadGroup.notificationCallbacks.getInterface(Ci.nsILoadContext);
-      } catch (ex2) {}
-    }
-  } catch (ex0) {}
-
-  if (!loadContext) {
-    // No load context, it's probably loading a resource.
-    return null;
-  } else {
-    if (!loadContext.hasOwnProperty("associatedWindow")) {
-      // This channel does not have a window, its probably loading a resource.
-      return null;
-    }
-
-    try {
-      var contentWindow = loadContext.associatedWindow;
-      var aDOMWindow = contentWindow.top.QueryInterface(Ci.nsIInterfaceRequestor)
-        .getInterface(Ci.nsIWebNavigation)
-        .QueryInterface(Ci.nsIDocShellTreeItem)
-        .rootTreeItem
-        .QueryInterface(Ci.nsIInterfaceRequestor)
-        .getInterface(Ci.nsIDOMWindow);
-      try {
-        var gBrowser = aDOMWindow.gBrowser;
-        var aTab = gBrowser._getTabForContentWindow(contentWindow.top);
-        var browser = aTab.linkedBrowser;
-        return {
-          aDOMWindow: aDOMWindow,
-          gBrowser: gBrowser,
-          aTab: aTab,
-          browser: browser,
-          contentWindow: contentWindow
-        };
-      } catch (ex1) {}
-    } catch (ex0) {}
-  }
-}
-
-function cancelRequest(aSubject) {
-  aSubject.cancel(Cr.NS_BINDING_ABORTED);
-}
-
 function getURIDomain(aURI) {
-    try {
-      return Services.eTLD.getBaseDomain(aURI, 0);
-    } catch(ex) {
-      return aURI.host;
-    }
-}
-
-function getBaseDomainFromHost(aHost) {
-  try {
-    return Services.eTLD.getBaseDomainFromHost(aHost, 0);
-  } catch(ex) {
-    return null;
-  }
+  return aURI.host;
 }
 
 function getURIQuery(aURI) {
   var url = new jurl.URL(aURI);
+  var b = {};
+  var i;
+  var p;
   var qs = (function(a) {
-    if (a == "") return {};
-    var b = {};
-    for (var i = 0; i < a.length; ++i) {
-      var p=a[i].split('=', 2);
-      if (p.length == 1)
+    if (a == "") {
+      return {};
+    }
+    for (i = 0; i < a.length; i += 1) {
+      p = a[i].split("=", 2);
+      if (p.length == 1) {
         b[p[0]] = "";
-      else
+      } else {
         b[p[0]] = decodeURIComponent(p[1].replace(/\+/g, " "));
+      }
     }
     return b;
-  })(url.search.substr(1).split('&'));
+  })(url.search.substr(1).split("&"));
 
   return qs;
 }
@@ -133,211 +55,145 @@ function getURIQuery(aURI) {
 var cfc = {
   _internalWhitelist: {
     "archive.is": true,
-    "archive.li": true,
+    "archive.li": true
   },
   _blacklist: {},
   _cflist: {},
-  _cfMod: null,
-  _twitterMod: null,
+  _prefs: {
+    cfPolicy: 0,
+    cfRewrite: true,
+    imgurGifvRewrite: true,
+    redditOutboundLinkTracking: true,
+    viglinkTracking: true,
+    twitterLinkTracking: true,
+    bypassUselessHomepages: true
+  },
 
   onStartup: function() {
-    Services.obs.addObserver(this, ON_MODIFY_REQUEST, false);
-    Services.obs.addObserver(this, ON_EXAMINE_RESPONSE, false);
-
-    this.attachMods();
-    simplePrefs.on("", this.attachMods.bind(this));
-
-    unload(this.onShutdown);
-  },
-
-  onShutdown: function(aReason) {
-    try {
-      simplePrefs.removeListener("", cfc.attachMods);
-      Services.obs.removeObserver(cfc, ON_MODIFY_REQUEST);
-      Services.obs.removeObserver(cfc, ON_EXAMINE_RESPONSE);
-    } catch(ex) {}
-  },
-
-  observe: function(aSubject, aTopic, aData) {
-    var aChannel = aSubject.QueryInterface(Ci.nsIHttpChannel);
-    var channelParams = loadContextGoodies(aChannel);
-    var aBrowser = (channelParams != null) ? channelParams.gBrowser : null;
-    var uri = aSubject.URI;
-    var uriStr = uri.spec;
-
-    var aTabBrowser = (channelParams != null) ? channelParams.browser : null;
-    if (aTabBrowser == null) {
-      aTabBrowser = aBrowser;
-    }
-
-    if (ON_MODIFY_REQUEST == aTopic) {
-      /* Examine our censorship cache to see if we know that the target host
-       * requires circumvention.
-       */
-      if (this.isBlacklisted(uri)) {
-        cancelRequest(aSubject);
-        if (aBrowser != null) {
-          this.fetchArchiveIs(aBrowser, uriStr);
-        }
-        return;
+    chrome.storage.local.get("cfcPrefs", function (res) {
+      if (res) {
+        cfc._prefs = res;
       }
-
-      /* Various quality of life/privacy fixes unrelated to the great satan. */
-      var domain = getURIDomain(uri);
-
-      /* imgur's gifv is WebM.  The privacy slider on higher settings doesn't
-       * play nice with this, so rewrite the link to request the animated GIF
-       * transparently.
-       */
-      if (preferences.imgurGifvRewrite) {
-        if ("imgur.com" == domain && uriStr.toLowerCase().endsWith(".gifv")) {
-          cancelRequest(aSubject);
-          this.fetch(aTabBrowser, uriStr.slice(0, -1));
-          return;
-        }
-        if ("imgur.com" == domain && uriStr.toLowerCase().indexOf("gallery") == -1 &&
-            uriStr.substr(uriStr.lastIndexOf("/")).indexOf(".") == -1 ) {
-          cancelRequest(aSubject);
-          this.fetch(uriStr + ".jpg");
-          return;
-        }
-      }
-
-      /* Kill reddit.com's outbound link tracking with fire. */
-      if (preferences.redditOutboundLinkTracking) {
-        if ("events.redditmedia.com" == uri.host || "out.reddit.com" == uri.host) {
-          cancelRequest(aSubject);
-          return;
-        }
-      }
-
-      /* Kill viglink.com's tracking/referal code hijacking. */
-      if (preferences.viglinkTracking) {
-        if ("viglink.com" == domain) {
-          cancelRequest(aSubject);
-          if (uri.host == "redirect.viglink.com") {
-            try {
-              var qs =  getURIQuery(uriStr);
-              this.fetch(aTabBrowser, qs["u"]);
-            } catch(ex) {}
-          }
-          return;
-        }
-      }
-
-      /* Show useful twitter / github front page. */
-      if (preferences.bypassUselessHomepages) {
-        if (("twitter.com" == domain && uriStr.toLowerCase().endsWith("twitter.com/")) ||
-            ("github.com" == domain && uriStr.toLowerCase().endsWith("github.com/"))) {
-          cancelRequest(aSubject);
-          this.fetch(aTabBrowser, uriStr + "search");
-          return;
-        }
-      }
-    } else if (ON_EXAMINE_RESPONSE == aTopic) {
-      /* Skip further processing on whitelisted hosts. */
-      if (this.isWhitelisted(uri)) {
-        return;
-      }
-
-      /* Check the response to see if the target site is hosted by
-       * CloudFlare.
-       *
-       * As far as I can tell, this is indicated by two things:
-       *  * The `Server` header being `cloudflare-nginx`.
-       *  * The presence of a `CF-RAY` header (Always?).
-       */
-      var cfHosted = false;
-      try {
-        if (("cloudflare-nginx" == aSubject.getResponseHeader("Server") ||
-             null != aSubject.getResponseHeader("CF-RAY"))) {
-          cfHosted = true;
-        }
-      } catch(ex) {
-        /* XXX: Should probably handle this properly, but just suppress
-         * exceptions for now under the assumption that the site isn't
-         * hosted by the evil empire.
-         */
-      }
-      if (!cfHosted) {
-        return;
-      }
-      this._cflist[getURIDomain(uri)] = true;
-
-      if (CFPolicy.ALLOW_GLOBAL == preferences.cfPolicy) {
-        return;
-      } else {
-        /* CloudFlare served the request, so handle it according to the
-         * currently configured policy.
-         */
-
-        if (CFPolicy.DENY_GLOBAL == preferences.cfPolicy) {
-          cancelRequest(aSubject);
-          if (aBrowser != null) {
-            this.fetchArchiveIs(aBrowser, uriStr);
-          }
-        } else {
-          /* Per site or automatic redirect on captcha.  The pagemod code
-           * handles all of this for us.
-           */
-        }
-      }
-    }
-  },
-
-  onAttach: function(aWorker) {
-    var uri = new jurl.URL(aWorker.url);
-    if (cfc.isCloudFlare(uri.hostname)) {
-      aWorker.port.emit("cfRewrite", true);
-    }
-  },
-
-  attachMods: function () {
-    if (this._cfMod) {
-      this._cfMod.destroy();
-      this._cfMod = null;
-    }
-    this._cfMod = pageMod.PageMod({
-      include: "*",
-      contentScriptFile: "./cloudflareRewrite.js",
-      contentScriptWhen: "ready",
-      contentScriptOptions: {
-        "button": true,
-        "redirect": CFPolicy.DENY_CAPTCHA == preferences.cfPolicy,
-        "snark": preferences.cfRewrite
-      },
-      onAttach: this.onAttach
     });
-    if (this._twitterMod) {
-      this._twitterMod.destroy();
-      this._twitterMod = null;
+    chrome.runtime.onMessage.addListener(this.contentScriptListener);
+
+    chrome.webRequest.onBeforeRequest.addListener(this.cfcRequestRewriter,
+        {urls: ["<all_urls>"]},
+        ["blocking"]);
+    chrome.webRequest.onHeadersReceived.addListener(this.cfcResponseRewriter,
+      {urls: ["<all_urls>"]},
+      ["blocking", "responseHeaders"]);
+  },
+
+  contentScriptListener: function(message, sender, response) {
+    if ("twitter" == message) {
+      response(this._prefs.twitterLinkTracking);
     }
-    if (preferences.twitterLinkTracking) {
-      this._twitterMod = pageMod.PageMod({
-        include: "*.twitter.com",
-        contentScriptFile: "./twitterRewrite.js",
-        contentScriptWhen: "ready"
+    else if ("cloudflare" == message) {
+      response({
+        redirect: CFPolicy.DENY_CAPTCHA == this._prefs.cfPolicy,
+        button: true,
+        snark: this._prefs.cfRewrite
       });
     }
   },
 
-  fetch: function(aTabBrowser, aURL) {
-    /* Load without replacing history. */
-    let flags = Ci.nsIWebNavigation.LOAD_FLAGS_STOP_CONTENT;
-    aTabBrowser.loadURIWithFlags(aURL, flags);
+  cfcRequestRewriter: function(requestDetails) {
+    if (this.isBlacklisted(requestDetails.url)) {
+      return {
+        redirectUrl: "https://archive.is/timegate/" + requestDetails.url
+      };
+    }
+
+    /* Skip further processing on whitelisted hosts. */
+    if (this.isWhitelisted(requestDetails.url)) {
+      return;
+    }
+
+    /* Various quality of life/privacy fixes unrelated to the great satan. */
+    var domain = getURIDomain(requestDetails.url);
+
+    /* imgur's gifv is WebM.  The privacy slider on higher settings doesn't
+     * play nice with this, so rewrite the link to request the animated GIF
+     * transparently.
+     */
+    if (this._prefs.imgurGifvRewrite) {
+      if (domain.endsWith("imgur.com") && requestDetails.url.toLowerCase().endsWith(".gifv")) {
+        return {
+          redirectUrl: requestDetails.url.slice(0, -1)
+        };
+      }
+      if (domain.endsWith("imgur.com") && requestDetails.url.toLowerCase().indexOf("gallery") == -1 &&
+          requestDetails.url.substr(requestDetails.url.lastIndexOf("/")).indexOf(".") == -1 ) {
+        return {
+          redirectUrl: requestDetails.url + ".jpg"
+        };
+      }
+    }
+
+    /* Kill reddit.com's outbound link tracking with fire. */
+    if (this._prefs.redditOutboundLinkTracking) {
+      if ("events.redditmedia.com" == domain || "out.reddit.com" == domain) {
+        return {cancel: true};
+      }
+    }
+
+    /* Kill viglink.com's tracking/referal code hijacking. */
+    if (this._prefs.viglinkTracking) {
+      if ("redirect.viglink.com" == domain) {
+        return {
+          redirectUrl: getURIQuery(requestDetails.url)["u"]
+        };
+      }
+      if (domain.endsWith("viglink.com")) {
+        return {cancel: true};
+      }
+    }
+
+    /* Show useful twitter / github front page. */
+    if (this._prefs.bypassUselessHomepages) {
+      if (requestDetails.url === "https://twitter.com/" ||
+          requestDetails.url === "https://github.com/") {
+        return {
+          redirectUrl: url + "search"
+        };
+      }
+    }
   },
 
-  fetchArchiveIs: function(aBrowser, aURL) {
-    /* Load with replacing history.  Things need to be this way since
-     * it's a huge pain to hook the pageshow event (needed since
-     * `DOMContentLoaded` doesn't fire on Forward/Back navigation.
+  cfcResponseRewriter: function(responseDetails) {
+    /* Check the response to see if the target site is hosted by
+     * CloudFlare.
      *
-     * XXX: Unfortunately triggering the load (despite the "stop all the
-     * things" flag) doesn't halt resource loads in progress for some stupid
-     * reason.
+     * As far as I can tell, this is indicated by two things:
+     *  * The `Server` header being `cloudflare-nginx`.
+     *  * The presence of a `CF-RAY` header (Always?).
      */
-    let flags = Ci.nsIWebNavigation.LOAD_FLAGS_REPLACE_HISTORY | Ci.nsIWebNavigation.LOAD_FLAGS_STOP_CONTENT;
-    aBrowser.loadURIWithFlags("https://archive.is/timegate/" + aURL, flags);
+    var cfHosted = false;
+    try {
+      if ("cloudflare-nginx" == repsonseDetails.responseHeaders["Server"] ||
+           null != repsonseDetails.responseHeaders["CF-RAY"]) {
+        cfHosted = true;
+      }
+    } catch(ex) {
+      /* XXX: Should probably handle this properly, but just suppress
+       * exceptions for now under the assumption that the site isn't
+       * hosted by the evil empire.
+       */
+    }
+    if (!cfHosted) {
+      return;
+    }
+    this._cflist[getURIDomain(uri)] = true;
+
+    /* CloudFlare served the request, so handle it according to the
+     * currently configured policy.
+     */
+    if (CFPolicy.DENY_GLOBAL == this._prefs.cfPolicy) {
+      return {
+        redirectUrl: "https://archive.is/timegate/" + repsonseDetails.url
+      };
+    }
   },
 
   isWhitelisted: function(aURI) {
@@ -345,21 +201,16 @@ var cfc = {
     if (this._internalWhitelist.hasOwnProperty(domain)) {
       return true;
     }
-    // TODO: User whitelist.
     return false;
   },
 
   isBlacklisted: function(aURI) {
     var domain = getURIDomain(aURI);
-    if (CFPolicy.DENY_GLOBAL == preferences.cfPolicy && this._cflist.hasOwnProperty(domain)) {
+    if (CFPolicy.DENY_GLOBAL == this._prefs.cfPolicy && this._cflist.hasOwnProperty(domain)) {
       return true;
     }
     return this._blacklist.hasOwnProperty(domain);
-  },
-
-  isCloudFlare: function(aHost) {
-    return this._cflist.hasOwnProperty(getBaseDomainFromHost(aHost));
-  },
+  }
 };
 
 /* Call the object's main initialization point that does all the actual work. */

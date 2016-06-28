@@ -1,4 +1,4 @@
-self.port.on("cfRewrite", function(params) {
+chrome.runtime.sendMessage("cloudflare", function(params) {
   if (document.title != "Attention Required! | CloudFlare") {
     return;
   }
@@ -12,12 +12,12 @@ self.port.on("cfRewrite", function(params) {
     return;
   }
 
-  if (self.options.redirect) {
+  if (params.redirect) {
     window.location.replace("https://archive.is/timegate/" + window.location.href);
     return;
   }
 
-  if (self.options.button) {
+  if (params.button) {
     buttonEle = formEle.querySelector("cfc-button");
     if (buttonEle == null) {
       var injectPoint = formEle.parentNode;
@@ -36,7 +36,7 @@ self.port.on("cfRewrite", function(params) {
     }
   }
 
-  if (self.options.snark) {
+  if (params.snark) {
     var whyEle = document.querySelector("p[data-translate='why_captcha_detail']");
     if (whyEle != null) {
       // Strip out the data-translate tag to prevent the page script from
