@@ -18,6 +18,9 @@
   "background": {
     "scripts": ["index.js"]
   },
+  "options_ui": {
+    "page": "options.html"
+  },
   "content_scripts": [
     {
       "matches": ["*://*.twitter.com/*"],

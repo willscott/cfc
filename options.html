@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style type="text/css">
+      div > span {font-size: small; display: block; padding-bottom: 1em;}
+    </style>
+  </head>
+
+<body>
+  <form>
+    <fieldset>
+      <legend>Options</legend>
+      <div>
+        <label for="cfPolicy">CloudFlare Policy</label>
+        <select name="cfPolicy" id="cfPolicy">
+            <option value="0">Allow CloudFlare globally ('I love street signs')</option>
+            <option value="1">Deny CloudFlare globally (Always use archive.is)</option>
+            <option value="2">Redirect to archive.is on Captcha</option>
+        </select>
+      </div>
+      <div>
+        <label for="cfRewrite">Improve CloudFlare Captcha messages</label>
+        <input type="checkbox" name="cfRewrite" id="cfRewrite" />
+        <span>Rewrite the CloudFlare Captcha messages to match reality</span>
+      </div>
+      <div>
+        <label for="imgurGifvRewrite">Rewrite imgur 'gifv' URLs</label>
+        <input type="checkbox" name="imgurGifvRewrite" id="imgurGifvRewrite" />
+        <span>Rewrite imgur 'gifv' URLs to 'gif'</span>
+      </div>
+      <div>
+        <label for="redditOutboundLinkTracking">Block reddit.com outbound link tracking</label>
+        <input type="checkbox" name="redditOutboundLinkTracking" id="redditOutboundLinkTracking" />
+        <span>Kill requests to 'events.redditmedia.com'/'out.reddit.com'</span>
+      </div>
+      <div>
+        <label for="viglinkTracking">Block viglink.com tracking/referal code hijacking</label>
+        <input type="checkbox" name="viglinkTracking" id="viglinkTracking" />
+        <span>Kill requests to '*.viglink.com', and rewrite requests when possible</span>
+      </div>
+      <div>
+        <label for="twitterLinkTracking">Skip twitter.com outbound link tracking</label>
+        <input type="checkbox" name="twitterLinkTracking" id="twitterLinkTracking" />
+        <span>Skip requests to 't.co' when the full URL can be used directly</span>
+      </div>
+      <div>
+        <label for="bypassUselessHomepages">Bypass Useless homepages</label>
+        <input type="checkbox" name="bypassUselessHomepages" id="bypassUselessHomepages" />
+        <span>Signup pages like twitter.com and github.com should instead default to search</span>
+      </div>
+
+      <button type="submit">Save</button>
+    </fieldset>
+  </form>
+  <script src="options.js"></script>
+</body>
+
+</html>

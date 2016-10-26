@@ -74,10 +74,16 @@ var cfc = {
 
   onStartup: function() {
     chrome.storage.local.get("cfcPrefs", function (res) {
-      if (res && "cfPolicy" in res) {
-        cfc._prefs = res;
+      if ("cfcPrefs" in res && "cfPolicy" in res.cfcPrefs) {
+        cfc._prefs = res.cfcPrefs;
       }
     });
+    chrome.storage.onChanged.addListener(function (changes, area) {
+      if ("cfcPrefs" in changes) {
+        cfc._prefs = changes.cfcPrefs.newValue;
+      }
+    });
+
     chrome.runtime.onMessage.addListener(this.contentScriptListener.bind(this));
 
     chrome.webRequest.onBeforeRequest.addListener(this.cfcRequestRewriter.bind(this),
@@ -182,7 +188,7 @@ var cfc = {
         //TODO: check cookies.
         if (! ("Cookie" in requestDetails.requestHeaders)) {
           chrome.tabs.update(requestDetails.tabId, {url: requestDetails.url + "search"});
-          return {cancel: true};          
+          return {cancel: true};
         }
       }
     }
