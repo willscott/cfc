@@ -4,11 +4,11 @@ chrome.runtime.sendMessage("cloudflare", function(params) {
   }
 
   var container = document.body.querySelector(".cf-captcha-container");
-  if (container == null) {
+  if (container === null) {
     return;
   }
   var formEle = container.querySelector(".challenge-form");
-  if (formEle == null) {
+  if (formEle === null) {
     return;
   }
 
@@ -19,7 +19,7 @@ chrome.runtime.sendMessage("cloudflare", function(params) {
 
   if (params.button) {
     buttonEle = formEle.querySelector("cfc-button");
-    if (buttonEle == null) {
+    if (buttonEle === null) {
       var injectPoint = formEle.parentNode;
       buttonEle = document.createElement("button");
       buttonEle.setAttribute("style", "width:100%; margin: 10px 0px; background-color: #66cc44; display: inline-block");
@@ -38,7 +38,7 @@ chrome.runtime.sendMessage("cloudflare", function(params) {
 
   if (params.snark) {
     var whyEle = document.querySelector("p[data-translate='why_captcha_detail']");
-    if (whyEle != null) {
+    if (whyEle !== null) {
       // Strip out the data-translate tag to prevent the page script from
       // attempting to localize my improved "Why" explanation.
       whyEle.removeAttribute("data-translate");
@@ -46,13 +46,13 @@ chrome.runtime.sendMessage("cloudflare", function(params) {
   }
 
     var avEle = document.querySelector("p[data-translate='resolve_captcha_antivirus']");
-    if (avEle != null) {
+    if (avEle !== null) {
       avEle.removeAttribute("data-translate");
       avEle.innerHTML = "Ask the site operator to switch to a CDN network that does not hate privacy.";
     }
 
     var netEle = document.querySelector("p[data-translate='resolve_captcha_network']");
-    if (netEle != null) {
+    if (netEle !== null) {
       netEle.removeAttribute("data-translate");
       netEle.innerHTML = "Ask the site opererator to configure the CloudFlare settings to <a href=\"https://support.cloudflare.com/hc/en-us/articles/203306930\">whitelist access from the Tor Network</a>.";
     }

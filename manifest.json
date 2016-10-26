@@ -14,9 +14,9 @@
     "48": "data/spray-can-48.png",
     "64": "data/spray-can-64.png"
   },
-  "permissions": ["storage", "webRequest", "webRequestBlocking"],
+  "permissions": ["storage", "tabs", "webRequest", "webRequestBlocking"],
   "background": {
-    "scripts": ["url.js", "index.js"]
+    "scripts": ["index.js"]
   },
   "content_scripts": [
     {

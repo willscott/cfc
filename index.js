@@ -26,16 +26,19 @@ var CFPolicy = {
 };
 
 function getURIDomain(aURI) {
+  if (typeof aURI === "string") {
+    aURI = new URL(aURI);
+  }
   return aURI.host;
 }
 
 function getURIQuery(aURI) {
-  var url = new jurl.URL(aURI);
+  var url = new URL(aURI);
   var b = {};
   var i;
   var p;
   var qs = (function(a) {
-    if (a == "") {
+    if (a === "") {
       return {};
     }
     for (i = 0; i < a.length; i += 1) {
@@ -71,29 +74,43 @@ var cfc = {
 
   onStartup: function() {
     chrome.storage.local.get("cfcPrefs", function (res) {
-      if (res) {
+      if (res && "cfPolicy" in res) {
         cfc._prefs = res;
       }
     });
-    chrome.runtime.onMessage.addListener(this.contentScriptListener);
+    chrome.runtime.onMessage.addListener(this.contentScriptListener.bind(this));
 
-    chrome.webRequest.onBeforeRequest.addListener(this.cfcRequestRewriter,
+    chrome.webRequest.onBeforeRequest.addListener(this.cfcRequestRewriter.bind(this),
         {urls: ["<all_urls>"]},
         ["blocking"]);
-    chrome.webRequest.onHeadersReceived.addListener(this.cfcResponseRewriter,
+    chrome.webRequest.onBeforeSendHeaders.addListener(this.cfcHomepageRewriter.bind(this),
+        {
+          urls: ["https://twitter.com/", "https://github.com/"],
+          types: ["main_frame"]
+        },
+        ["blocking", "requestHeaders"]);
+    chrome.webRequest.onHeadersReceived.addListener(this.cfcResponseRewriter.bind(this),
       {urls: ["<all_urls>"]},
       ["blocking", "responseHeaders"]);
   },
 
   contentScriptListener: function(message, sender, response) {
     if ("twitter" == message) {
-      response(this._prefs.twitterLinkTracking);
-    }
-    else if ("cloudflare" == message) {
+      if ("twitterLinkTracking" in cfc._prefs) {
+        response(cfc._prefs.twitterLinkTracking);
+      } else {
+        //TODO: default prefs.
+        response(true);
+      }
+    } else if ("cloudflare" == message) {
+      if (!("cfPolicy" in cfc._prefs)) {
+        cfc._prefs.cfPolicy = CFPolicy.DENY_CAPTCHA;
+        cfc._prefs.cfRewrite = false;
+      }
       response({
-        redirect: CFPolicy.DENY_CAPTCHA == this._prefs.cfPolicy,
+        redirect: CFPolicy.DENY_CAPTCHA == cfc._prefs.cfPolicy,
         button: true,
-        snark: this._prefs.cfRewrite
+        snark: cfc._prefs.cfRewrite
       });
     }
   },
@@ -112,12 +129,13 @@ var cfc = {
 
     /* Various quality of life/privacy fixes unrelated to the great satan. */
     var domain = getURIDomain(requestDetails.url);
+    //console.log("REQUEST REWRITER FOR DOMAIN: " + domain + " / URL:" + requestDetails.url);
 
     /* imgur's gifv is WebM.  The privacy slider on higher settings doesn't
      * play nice with this, so rewrite the link to request the animated GIF
      * transparently.
      */
-    if (this._prefs.imgurGifvRewrite) {
+    if (cfc._prefs.imgurGifvRewrite) {
       if (domain.endsWith("imgur.com") && requestDetails.url.toLowerCase().endsWith(".gifv")) {
         return {
           redirectUrl: requestDetails.url.slice(0, -1)
@@ -132,15 +150,20 @@ var cfc = {
     }
 
     /* Kill reddit.com's outbound link tracking with fire. */
-    if (this._prefs.redditOutboundLinkTracking) {
+    if (cfc._prefs.redditOutboundLinkTracking) {
       if ("events.redditmedia.com" == domain || "out.reddit.com" == domain) {
-        return {cancel: true};
+        var query = getURIQuery(requestDetails.url);
+        if ("url" in query) {
+          return {redirectUrl: query.url};
+        } else {
+          return {cancel: true};
+        }
       }
     }
 
     /* Kill viglink.com's tracking/referal code hijacking. */
-    if (this._prefs.viglinkTracking) {
-      if ("redirect.viglink.com" == domain) {
+    if (cfc._prefs.viglinkTracking) {
+      if ("redirect.viglink.com" === domain) {
         return {
           redirectUrl: getURIQuery(requestDetails.url)["u"]
         };
@@ -149,14 +172,18 @@ var cfc = {
         return {cancel: true};
       }
     }
+  },
 
+  cfcHomepageRewriter: function(requestDetails) {
     /* Show useful twitter / github front page. */
-    if (this._prefs.bypassUselessHomepages) {
+    if (cfc._prefs.bypassUselessHomepages) {
       if (requestDetails.url === "https://twitter.com/" ||
           requestDetails.url === "https://github.com/") {
-        return {
-          redirectUrl: url + "search"
-        };
+        //TODO: check cookies.
+        if (! ("Cookie" in requestDetails.requestHeaders)) {
+          chrome.tabs.update(requestDetails.tabId, {url: requestDetails.url + "search"});
+          return {cancel: true};          
+        }
       }
     }
   },
@@ -170,28 +197,23 @@ var cfc = {
      *  * The presence of a `CF-RAY` header (Always?).
      */
     var cfHosted = false;
-    try {
-      if ("cloudflare-nginx" == repsonseDetails.responseHeaders["Server"] ||
-           null != repsonseDetails.responseHeaders["CF-RAY"]) {
-        cfHosted = true;
-      }
-    } catch(ex) {
-      /* XXX: Should probably handle this properly, but just suppress
-       * exceptions for now under the assumption that the site isn't
-       * hosted by the evil empire.
-       */
+    if (("Server" in responseDetails.responseHeaders &&
+        "cloudflare-nginx" === responseDetails.responseHeaders.Server) ||
+         ("CF-Ray" in responseDetails.responseHeaders &&
+         null !== responseDetails.responseHeaders["CF-RAY"])) {
+      cfHosted = true;
     }
     if (!cfHosted) {
       return;
     }
-    this._cflist[getURIDomain(uri)] = true;
+    this._cflist[getURIDomain(responseDetails.url)] = true;
 
     /* CloudFlare served the request, so handle it according to the
      * currently configured policy.
      */
     if (CFPolicy.DENY_GLOBAL == this._prefs.cfPolicy) {
       return {
-        redirectUrl: "https://archive.is/timegate/" + repsonseDetails.url
+        redirectUrl: "https://archive.is/timegate/" + responseDetails.url
       };
     }
   },
@@ -214,4 +236,4 @@ var cfc = {
 };
 
 /* Call the object's main initialization point that does all the actual work. */
-cfc.onStartup();
+cfc.onStartup.call(cfc);
