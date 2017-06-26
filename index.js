@@ -178,6 +178,7 @@ var cfc = {
         return {cancel: true};
       }
     }
+    return {cancel: false};
   },
 
   cfcHomepageRewriter: function(requestDetails) {

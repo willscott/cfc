@@ -1,12 +1,6 @@
 {
   "name": "cfc",
   "version": "0.1.0",
-  "applications": {
-    "gecko": {
-      "id": "cfc@schwanenlied.me",
-      "strict_min_version": "48.0a1"
-    }
-  },
   "description": "Improve the Tor Browser user experience",
   "manifest_version": 2,
   "icons": {
@@ -14,7 +8,7 @@
     "48": "data/spray-can-48.png",
     "64": "data/spray-can-64.png"
   },
-  "permissions": ["storage", "tabs", "webRequest", "webRequestBlocking"],
+  "permissions": ["<all_urls>", "storage", "tabs", "webRequest", "webRequestBlocking"],
   "background": {
     "scripts": ["index.js"]
   },
