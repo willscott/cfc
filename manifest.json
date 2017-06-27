@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "description": "Improve the Tor Browser user experience",
   "manifest_version": 2,
+  "applications": {
+    "gecko": {
+      "id": "cfc@schwanenlied.me",
+      "strict_min_version": "48.0a1"
+    }
+  },
   "icons": {
     "32": "data/spray-can-32.png",
     "48": "data/spray-can-48.png",
