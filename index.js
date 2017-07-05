@@ -147,11 +147,20 @@ var cfc = {
           redirectUrl: requestDetails.url.slice(0, -1)
         };
       }
-      if (domain.endsWith("imgur.com") && requestDetails.url.toLowerCase().indexOf("gallery") == -1 &&
+      if (domain.endsWith("imgur.com") &&
+          requestDetails.url.toLowerCase().indexOf("gallery") == -1 &&
+          requestDetails.url.toLowerCase().indexOf("/a/") == -1 &&
+          !requestDetails.url.toLowerCase().endsWith("/") &&
+          requestDetails.url.substr(requestDetails.url.lastIndexOf("/")).length >= 7 &&
           requestDetails.url.substr(requestDetails.url.lastIndexOf("/")).indexOf(".") == -1 ) {
         return {
           redirectUrl: requestDetails.url + ".jpg"
         };
+      }
+      if (domain.toLowerCase() == "gfycat.com") {
+        return {
+          redirectUrl: requestDetails.url.replace("gfycat.com", "giant.gfycat.com") + ".gif"
+        }
       }
     }
 
