@@ -195,11 +195,16 @@ var cfc = {
     if (cfc._prefs.bypassUselessHomepages) {
       if (requestDetails.url === "https://twitter.com/" ||
           requestDetails.url === "https://github.com/") {
-        //TODO: check cookies.
-        if (! ("Cookie" in requestDetails.requestHeaders)) {
-          chrome.tabs.update(requestDetails.tabId, {url: requestDetails.url + "search"});
-          return {cancel: true};
+        // If logged in, then don't do anything:
+        for (var i = 0; i < requestDetails.requestHeaders.length; i++) {
+          if (requestDetails.requestHeaders[i].name == "Cookie" &&
+              ((requestDetails.url === "https://twitter.com/" && requestDetails.requestHeaders[i].value.indexOf("twid=") > 0) ||
+              (requestDetails.url === "https://github.com/" && requestDetails.requestHeaders[i].value.indexOf("logged_in=yes") > 0))) {
+            return
+          }
         }
+        chrome.tabs.update(requestDetails.tabId, {url: requestDetails.url + "search"});
+        return {cancel: true};
       }
     }
   },
