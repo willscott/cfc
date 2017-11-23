@@ -22,20 +22,6 @@ Notes:
    isolation.  Fixing this issue correctly requires a Tor Browser patch.
    You have been warned, twice.
 
- * This is a bastard combination of a bootstrapped (restartless) addon,
-   and SDK calls.  It however does use Content Scripts, so it may survive
-   the transition to e10s.
-
- * The first access to a site will incur minor additional network overhead
-   on a per-session basis.
-
  * The name was chosen because it punches holes in censorship/blocking like
    chlorofluorocarbons punch holes in the ozone layer, and any resemblance
    to "CloudFlare Fucking Captcha" is entirely coincidental.
-
- * It's been years since I've subjected myself to JavaScript, and this is
-   the first Firefox addon I've written.  Code quality not guaranteed.
-
- * Untested on Wintendos and Macintoys.  I do not have such abominations,
-   however the code should work as it is portable.
-
